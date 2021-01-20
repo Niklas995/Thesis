@@ -4,7 +4,7 @@
 
 # This is a basic workflow to help you get started with Actions
 
-name: Github Action Programm
+name: Git_run
 
 # Controls when the action will run. 
 on:
