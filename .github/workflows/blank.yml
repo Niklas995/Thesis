@@ -28,5 +28,4 @@ jobs:
      with:
          version: '1.0.4'
    - uses: julia-actions/julia-buildpkg@master
-     name: run ev_wi
    - run: julia --project ev_wi.jl
