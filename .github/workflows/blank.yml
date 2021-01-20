@@ -31,4 +31,4 @@ jobs:
 
       # Runs a set of commands using the runners shell
       - name: Run my test
-        run:  Niklas995/Thesis/ev_wi.jl
+        run:  https://github.com/Niklas995/Thesis.git/ev_wi.jl
