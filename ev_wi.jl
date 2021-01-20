@@ -1,9 +1,6 @@
-
-
-
 β= 3.2
-NX=16
-NT=16
+NX=8
+NT=8
 NTHERM=10000
 NMEAS=10
 OFS=100 #ndisc
@@ -197,45 +194,14 @@ U0=OffsetArray(zeros(NT,NX,2),0:NT-1,0:NX-1,0:1)
 
 ev0=Evw(U0,0.0)
 
-plot(x = real(ev0), y = imag(ev0))
 
+
+display(plot(real(ev0),imag(ev0), seriestype = :scatter, title = "Eigenvalues", fmt = :png))
 
 
 U=OffsetArray(2*π*rand(NT,NX,2),0:NT-1,0:NX-1,0:1)
 
 ev=Evw(U,0.0)
 
-plot(x = real(ev), y = imag(ev))
 
-
-
-# parse command line arguments
-#decode()
-#println("Lattice setup: β=",β," NX=",NX," NT=",NT)
-#println("Discarding first ",NTHERM," updates")
-#println("Performing ",NMEAS," measurments separated by ",OFS," updates")
-
-# create the results directory
-#mkpath(outdir)
-
-# the trivial gauge config
-# write the observables as config 0
-#Confout(U0,0)
-
-# hot start: a random gauge field
-#U=OffsetArray(2*π*rand(NT,NX,2),0:NT-1,0:NX-1,0:1)
-
-# thermalization loop
-#for i=1:NTHERM
-#      update(U,β)
-#end
-
-# measurment loop
-#for m=1:NMEAS
-# skip measurments to decorrelate
-#      for i=1:OFS
-#            update(U,β)
-#      end
-# write the observables
-#      Confout(U,m)
-#end
+gui(plot(real(ev), imag(ev), seriestype = :scatter, title = "Eigenvalues", fmt = :png))
