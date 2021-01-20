@@ -28,9 +28,9 @@ jobs:
      with:
          version: '1.0.4'
    - uses: julia-actions/julia-buildpkg@master
-   - name: init
+     name: init
    - run: julia --project ev_init.jl
      
 
-   - name: ev_wi
+     name: ev_wi
    - run: julia --project ev_wi.jl
