@@ -220,7 +220,7 @@ ev0=Evw(U0,0.0)
 print(real(ev0))
 print(imag(ev0))
 
-#savefig(plot(real(ev0),imag(ev0), seriestype = :scatter, title = "Eigenvalues", fmt = :png))
+#display(plot(real(ev0),imag(ev0), seriestype = :scatter, title = "Eigenvalues", fmt = :png))
 
 
 U=OffsetArray(2*π*rand(NT,NX,2),0:NT-1,0:NX-1,0:1)
@@ -228,6 +228,6 @@ U=OffsetArray(2*π*rand(NT,NX,2),0:NT-1,0:NX-1,0:1)
 ev=Evw(U,0.0)
 
 
-#plot(real(ev), imag(ev), seriestype = :scatter, title = "Eigenvalues", fmt = :png))
+#display(plot(real(ev), imag(ev), seriestype = :scatter, title = "Eigenvalues", fmt = :png))
 print(real(ev))
 print(imag(ev))
