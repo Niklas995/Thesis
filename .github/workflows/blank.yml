@@ -4,7 +4,7 @@
 
 # This is a basic workflow to help you get started with Actions
 
-name: Git_run
+#name: Git_run
 
 # Controls when the action will run. 
 on:
