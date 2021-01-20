@@ -1,8 +1,6 @@
 - name: Setup Julia environment
   uses: julia-actions/setup-julia@v1.6.0
-import Pkg
-Pkg.add(["OAuth", "HTTP", "JSON"])
-using OAuth, HTTP, JSON
+ 
 
 # This is a basic workflow to help you get started with Actions
 
