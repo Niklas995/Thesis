@@ -23,8 +23,8 @@ using LinearAlgebra
 
 
 β= 3.2
-NX=8
-NT=8
+NX=4
+NT=4
 NTHERM=10000
 NMEAS=10
 OFS=100 #ndisc
@@ -220,7 +220,7 @@ ev0=Evw(U0,0.0)
 
 
 
-display(plot(real(ev0),imag(ev0), seriestype = :scatter, title = "Eigenvalues", fmt = :png))
+savefig(plot(real(ev0),imag(ev0), seriestype = :scatter, title = "Eigenvalues", fmt = :png))
 
 
 U=OffsetArray(2*π*rand(NT,NX,2),0:NT-1,0:NX-1,0:1)
