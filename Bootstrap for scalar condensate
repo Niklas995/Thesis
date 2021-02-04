@@ -1,392 +1,9 @@
-## Try w/o ohne class (according to Hölbling):
-# helper functions for more readable modulo operations
-
-
-
-class Gauge:
-    def __init__(self, N_t, N_s, beta , m):
-        self.Nt = N_t
-        self.Ns = N_s
-        self.beta = beta
-        self.m = m
-        self.updates = 120
-        self.intervall = 5
-        self.skip = 100
-        #self.skip = 4*self.Ns * self.Nt * 100
-        
-        # the Euclidean γ matrices:
-        
-        # the Euclidean γ0 is equal to the Minkovski γ0
-        self.gamma_0 = np.array([[1.,0.],[0.,-1.]], dtype=complex)
-        # the Euclidean γ1 is equal to -im*γ1 the Minkovski γ1
-        self.gamma_1 = np.array([[0, -1j],[1j,0]], dtype=complex)
-        # the 2*2 identity matrix
-        self.id = np.array([[1.,0.],[0.,1.]], dtype=float)
-        #self.F 
-        self.U = np.ones([2, self.Nt, self.Ns])
-   
-    def coldstart(self):
-        U = np.zeros([2, self.Nt, self.Ns])
-        return U
-        
-    def hotstart(self):
-        U = np.random.rand(2,self.Nt,self.Ns) * 2 * np.pi
-        return U
-
-    def metropolis(self, U, Nt, Ns, beta, charge, topupd):
-        l = 0
-        #plaquette_array = np.zeros((self.updates - self.skip) / self.intervall)
-        #Q_array = np.zeros((self.updates - self.skip) / self.intervall)
-        S_array = np.zeros(int((self.updates - self.skip) / self.intervall))
-        U_saved = np.zeros([int((self.updates - self.skip) / self.intervall-1) , 2, Nt, Ns])
-        U_change = np.zeros([2, Nt, Ns])
-        for i in range(0, self.updates):
-            for mu in range (0,2):
-                for eo in range (0,2):
-                    for s in range (0,Ns):
-                        ofs = np.bitwise_xor(eo, s&1)
-                        for t in range (ofs, Nt, 2):
-                            U_change = U[mu, t, s] + (random.random() - random.random())
-                            #U_change = U
-                            #U_change[mu, t, s] = U_change[mu, t, s] +(random.random() - random.random()) #+ random.uniform(-0.2*np.pi, 0.2*np.pi) #
-                            
-                            
-                            delta_S = beta * np.real(self.staple(U, mu, t, s)*(np.exp(1j*U[mu,t,s])-np.exp(1j*U_change)))
-                            #delta_S = self.action_dS(U, U_change, beta, mu, t, s)
-                            #delta_S = self.action_try( U, Nt, Ns, beta) - self.action_try(U_change, Nt, Ns, beta)
-                            
-                            
-                            #self.config_multiplication()
-                            #Q = self.Q()
-                            #print("dS" , delta_S)
-                            #print(self.action( U, Nt, Ns, beta))
-                            if np.exp(-delta_S) > random.random():
-                                U[mu, t, s] = U_change
-                                #U = U_change
-            if i > self.skip and  i%self.intervall == 0:
-                #print(self.plaquette())
-                U_saved[l, :, :, :] = U[:, :, :]
-                #omega()   for temporal gauge transformation
-                #plaquette_array[int((i - self.skip) / self.intervall)] = np.real(np.mean(self.plaquettes()))
-                #Q_array[int((i - self.skip) / self.intervall)] = self.Q()
-                S_array[int((i - self.skip) / self.intervall)] = self.action(U, Nt, Ns, beta)
-                #print(S_array[int((i - self.skip) / self.intervall)])
-                l = l + 1
-                #print(l)
-            #produce new MC suggestion by muliplaying with a topological config
-            if topupd == 1:
-                charge = random.choice([-1,1,])
-                U_mult = U + self.instanton_config(charge, Nt, Ns)
-                #print(self.instanton_config(charge, Nt, Ns))
-                # action difference
-                deltaa_S = self.action(U_mult, Nt, Ns, beta) - self.action(U, Nt, Ns, beta)
-                if np.exp(-deltaa_S) > random.random():
-                    U = U_mult
-                    
-        return U_saved, S_array, U
-
-    
-
-    
-    def action_dS(self, U, U_change,beta, mu, t, s):
-        dS = - beta * np.real((np.exp(1j * U_change) - np.exp(1j * U[mu ,t, s])) * self.staple(U, mu, t, s,))
-        return dS
-
-    
-    def action(self, U, Nt, Ns, beta):
-        act = - beta * np.sum(np.sum(np.cos(((U[0, :, :] + np.roll(U, -1, axis=0)[1, :, :] - np.roll(U, -1, axis=1)[1, :, :] - U[1, : , :])-1))))
-        #print(act)
-        return act
-    
-    def action_try(self, U, Nt, Ns, beta):
-        
-        P = self.plaquettes(U, Nt, Ns)
-        
-        S_E = 0
-        for t in range(0, Nt):
-            for s in range(0, Ns):
-                for i in range(0,1):
-                    S_E = S_E + beta/(Nt*Ns) * np.real(1-P[i,t,s])
-                    
-        #print(S_E)
-        return S_E    
-    
-    
-    
-    # define the plaquette       hier entsteht 2 x 16 plaquette .. evtl falsch
-    def plaquettes(self, U, Nt, Ns):
-        
-        P = np.zeros([Nt, Ns])
-        
-        P[: , :] = U[0, :, :] + np.roll(U[1, :, :], 1, axis=0) - np.roll(U[0, :, :], 1, axis=1) - U[1, : , :]
-        
-        return np.exp(-1j * P)
-
- 
-    # define the staple (i.e. A^†) at point (t,x) in direction μ
-    def staple(self, U, mu, t, x):
-        nu = 1 - mu    
-        first_exp = - U[nu, t, x] \
-                    - U[mu, self.T(t + mu), self.X(x + nu)] \
-                     + U[nu, self.T(t + nu), self.X(x + mu)]
-        second_exp = + U[nu, self.T(t - mu), self.X(x - nu) ]\
-                     - U[mu, self.T(t - mu), self.X(x - nu) ] \
-                     - U[nu, self.T(t - mu - nu), self.X(x + nu + mu)] 
-                    
-                   
-        return np.exp(1j * first_exp) + np.exp(1j * second_exp)
-
-
-    # applying a gauge transformation
-    ## allgemein gehalten, dass auch ne zeitliche einchtrafo reingesteckt werden kann
-    def gauge_transform(U, omega ):
-        """Transform the gauge field with Omega
-        """
-        #print('g_field will be transformed')
-        #omega = 2 * np.pi * np.random.uniform(0, 1, (NT, NS))
-        U[:, :, 0] = - omega + U[:, :, 0] + np.roll(omega, -1, axis=0)
-        U[:, :, 1] = - omega + U[:, :, 1] + np.roll(omega, -1, axis=1)
-
-    # the topological charge
-    def topch(U):
-        tch = 1/(2 * np.pi) * np.imag(np.log(plaquette(U)))
-        return tch
-
-    # constructing a gauge transformation for temporal gauge
-    def tempgauge(U):
-        # return a config that is gauge equivalent
-        # to u and has temporal gauge
-
-        # define the gauge transformation
-        omega = np.zeros([NT, NS])
-        # line by line except the last one
-        for t in range (0, NT-1):
-            # gauge transformation at that line from phase of previous line
-            omega[t+1][:] = omega[t][:] + U[0][t][:]
-        # apply the constructed gauge transformation
-        return gauge_transform(U, omega)
-
-
-
-    ### construct an instanton of charge ch
-    def instanton_config(self, charge, Nt, Ns):  #blatt 8 Konfiguration für Q=1 unabhänig von gauge trafo
-        ''' this function does ... with ...
-        
-        param charge: tell what charge does
-        return Q: explain what will be returned'''
-
-        ### start with a trivial gauge config
-        U_new = np.zeros([2, Nt, Ns])
-        #self.U = np.random.rand(2,self.Nt,self.Ns) * 2 * np.pi
-        
-        ### # the field per Plaquette
-        F = 2*np.pi*charge / (Nt*Ns)
-        #print(F)
-        ### set field on every timeslice but the last
-        for t in range(1, Nt):
-            U_new[1][t][:] = t*F  ## here is F also seen
-            
-        ### field on last time slice
-        for x in range(1, Ns):
-            U_new[0][Nt-1][x] =  -x * F * Nt ## and here
-
-        #print(self.U)
-        #Q = self.Q()
-        
-        ### return the final construct
-        return U_new #, Q
-    #self.U
-  
-
-    # topological update
-    def topupd(U, beta):
-        # produce new MC suggestion by multiplying with a topological config
-        ch = random.random() * 2 -1
-        um = U + instanton_config(ch)
-        # compute the action difference
-        Delta_S = act(um, beta) - act(U, beta)
-        # and perform the MC step
-        if np.exp( - Delta_S  ) > random.random():
-            U[:,:,:] = um[:,:,:]
-
-        # the Euclidean γ matrices:
-
-        # the Euclidean γ0 is equal to the Minkovski γ0
-        gamma_0 = np.array([[1.,0.],[0.,-1.]], dtype=complex)
-        # the Euclidean γ1 is equal to -im*γ1 the Minkovski γ1
-        gamma_1 = np.array([[0, -1j],[1j,0]], dtype=complex)
-        # the 2*2 identity matrix
-        id = np.array([[1.,0.],[0.,1.]], dtype=float)
-
-
-    #Mean of eigenvlues from metropilis
-    def U_mean(self, U, Nt, Ns):
-        U_mean = np.zeros([2, Nt, Ns])
-        for i in range (0, (self.updates - self.skip) / self.intervall):
-            U_mean[:, :, :] = U[i, :, :, :]
-        return U_mean
-    
-    
-    
-    
-    # the Naive Dirac operator
-    # Gauge field U, mass m
-    def D_naive(self, U  , m , Nt, Ns): #Naive Dirac-operator to calculate fermion action (callen M_ij in lecture)
-        # first zero all elements
-        D = np.zeros([Nt, Ns, 2, Nt, Ns, 2], dtype=complex, order='F')
-        # loop over all points
-        for t in range (0, Nt):
-            for x in range (0, Ns):
-                # add the diagonal mass term
-                D[t,x,:,t,x,:]=self.id*self.m
-                # add the forward in time neighborlt, x]) * self.gamma_1 / 2.0
-                # backward neighbor in space
-                D[t,x,:,t, (x-1)%Ns,:] = np.exp(-1j * self.U[1, t, self.X(x-1)%Ns ]) * (-self.gamma_1) / 2.0
-        return D
-
-    
-    def T(self, t):
-        return t%self.Nt
-    
-    def X(self, x):
-        return x%self.Ns
-
-    
-    
-    def D_wilson2(self, U , m, NT, NS ): #Wilson Dirac-operator with addet term
-        # first zero all elements
-        D = np.zeros([2, NT, NS, 2, NT, NS], dtype=complex, order='F')
-        # loop over all points
-        for t in range (0,NT):
-            for x in range (0, NS):
-                # add the diagonal mass term   
-                D[:, t,x, :,t,x]=self.id * (m-2) / 2.0
-                # add the forward in time neighbor
-                D[:, t,x,:, self.T(t+1) ,x] = np.exp(1j * U[0, t, x]) * (self.id + self.gamma_0) / 2.0
-                # forward neighbor in space
-                D[:, t,x,:,t, self.X(x+1)] = np.exp(1j * U[1, t, x,]) * (self.id + self.gamma_1) / 2.0
-                # backward neighbor in time
-                D[:, t,x,:, self.T(t-1) ,x] = np.exp(-1j * U[0, self.T(t-1) , x]) * (self.id - self.gamma_0) / 2.0
-                # backward neighbor in space
-                D[:, t,x,:,t, self.X(x-1)] = np.exp(-1j * U[1, t, self.X(x-1) ]) * (self.id - self.gamma_1) / 2.0
-        return D
-    
-    
-    
-    # the Wilson Dirac operator
-        # Gauge field U, mass m
-    def D_wilson(self, U , m, NT, NS ): #Wilson Dirac-operator with addet term
-        # first zero all elements
-        D = np.zeros([2, NT, NS, 2, NT, NS], dtype=complex, order='F')
-        # loop over all points
-        for t in range (0,NT):
-            for x in range (0, NS):
-                # add the diagonal mass term   
-                D[:, t,x, :,t,x]=self.id * (m+2) #/ 2 
-                # add the forward in time neighbor
-                D[:, t,x,:, self.T(t+1) ,x] = np.exp(1j * U[0, t, x]) * (-self.id + self.gamma_0) / 2.0
-                # backward neighbor in time
-                D[:, t,x,:, self.T(t-1) ,x] = np.exp(-1j * U[0, self.T(t-1) , x]) * (-self.id - self.gamma_0) / 2.0
-                # forward neighbor in space
-                D[:, t,x,:,t, self.X(x+1)] = np.exp(1j * U[1, t, x,]) * (-self.id + self.gamma_1) / 2.0
-                # backward neighbor in space
-                D[:, t,x,:,t, self.X(x-1)] = np.exp(-1j * U[1, t, self.X(x-1) ]) * (-self.id - self.gamma_1) / 2.0
-        #print(D)
-        return D
-
-
-
-    def D_wilson_dagger(self, U, m, Nt, Ns):
-        #D_dggr = np.zeros([self.Nt, self.Ns, 2, self.Nt, self.Ns, 2], dtype=complex, order='F')
-        #self.U = np.zeros([2, self.Nt, self.Ns])
-        D_wil = self.D_wilson(U, m, Nt, Ns)
-        D_dggr = np.matrix.getH(D_wil)
-        return D_dggr
-    
-   # the Overlap Dirac operator
-    def D_overlap(self, U , rho, m, Nt, Ns):
-        # Gauge field U, projection point rho, mass m
-        # first get the wilson operator
-        Dw = self.D_wilson(U , -rho, Nt, Ns)                              #mass is not considered
-        # make an SVD
-        DWK_T= np.reshape(Dw , (Nt*Ns*2, Nt*Ns*2))
-        DWK = np.subtract(DWK_T, rho)
-        U, S, VT = svd(DWK, full_matrices=False )  ##, full_matrices=False
-        # and produce the overlap operator from it
-        D_ov = np.dot(U,VT) + np.identity(len(DWK_T)) * 1
-        #print(D_ov)
-        return D_ov
-    
-    
-    
-   
-    # Eigenvalues of the Naive operprator at mass m on gauge field U
-    def Evn(self, U, NT, NS ):
-        m=0
-        Dn_re = np.reshape(self.D_naive(U, m, NT, NS), (NT*NS*2, NT * NS *2) )
-        EigVaNa = LA.eigvals(Dn_re)
-        return EigVaNa
-
-    # Eigenvalues of the Wilson operator at mass m on gauge field U
-    def Evw(self, U, NT, NS ):
-        m=0
-        DW_re = np.reshape(self.D_wilson(U, m, NT, NS), (NT * NS *2, NT * NS *2) )
-        EigVaWi = LA.eigvals(DW_re)
-        return EigVaWi
-
-    # Eigenvalues of the Overlap operator with rho=1 at mass m on gauge field U
-    def Evo(self, U, rho, NT, NS ):
-        m=0
-        EigVaOv = LA.eigvals(self.D_overlap(U, rho , m, NT, NS))
-        #print(EigVaOv)
-        return EigVaOv
-
-   
-    def cnfgOutNaive(self, real, im): 
-        plt.rcParams.update({'font.size': 22})
-        plt.figure(figsize=(20,10))
-        plt.errorbar(x= real , y = im,   markersize= 6,fmt='x' , label= r'eigenvalues of M' '\nNaive Dirac for 16x16' '\nbeta=1.8, m=0, Q=0')  #
-        plt.legend(loc= 'best')
-        
-        plt.xticks(range(-1, 3))
-        plt.show()
-        
-    def cnfgOutWilson(self, real, im): 
-        plt.rcParams.update({'font.size': 22})
-        plt.figure(figsize=(20,10))
-        plt.errorbar(x= real , y = im,   markersize= 6,fmt='x' , label= r'eigenvalues of M' '\nWilson Dirac for 16x16' '\nbeta=1.8, m=0, Q=0')  #, label= r'eigenvalues of M' 
-        plt.legend(loc= 'best')
-        #plt.savefig('w16x16_18_tpch0.jpg', dpi=300, quality=80, optimize=True, progressive=True)
-
-        plt.show()
-        
-    def cnfgOutWplusN(self, realW, imW, realN, imN):
-        plt.rcParams.update({'font.size': 22})
-        plt.figure(figsize=(20,10))
-        plt.errorbar(x= realN , y = imN,   markersize= 6,fmt='x' , label= r'eigenvalues of M' '\nNaive Dirac for 16x16' '\nbeta=1.8, m=0, Q=3')  #
-        plt.errorbar(x= realW , y = imW,   markersize= 6,fmt='x' , label= r'eigenvalues of M' '\nWilson Dirac for 16x16' '\nbeta=1.8, m=0, Q=3')  #, label= r'eigenvalues of M' 
-        plt.legend(loc= 'best')
-        #plt.savefig('wPLUSn16x16_18_tpch3.jpg', dpi=300, quality=80, optimize=True, progressive=True)
-        
-        plt.show()
-    
-    def cnfgOutOverlap(self, real, im):
-        plt.rcParams.update({'font.size': 22})
-        plt.figure(figsize=(20,10))
-        plt.errorbar(x= real , y = im,   markersize= 6,fmt='x' , label= r'eigenvalues of M' '\nOverlap mit Wilson-Kern for 16x16' '\nbeta=1.8, m=0, Q=0')  #, label= r'eigenvalues of M' 
-        plt.legend(loc= 'best')
-        plt.xlim(-1,1)
-        
-        plt.show()
-
-
-###################################################################################################################
 
 
     def bootstrap(self, bs_steps, U_save, beta, rho,  Nt, Ns, N_f):
         U_new_config = np.zeros([int((self.updates -  self.skip) / self.intervall)-1, 2, Nt, Ns])
-        m_r = np.arange(0.04, 0.2, 0.005)                     #array of negativ masses
-        m_l = np.arange(-0.1,-0.04, 0.005)		     #array of positive masses
+        m_r = np.arange(0.01, 0.2, 0.005)                     #array of negativ masses
+        m_l = np.arange(-0.1,-0.01, 0.005)		     #array of positive masses
         m = np.zeros([int(len(m_l)+1+len(m_r))])             
         for i in range (0, int(len(m_l))):		     #combining both arrays with a zero in the middle
             m[i] = m_l[i]
@@ -409,6 +26,7 @@ class Gauge:
         
         return ov_condensate[0], err_ov_condensate, m
     
+abc
 
 
 
@@ -452,7 +70,7 @@ class Gauge:
                 
                 
         for j in range (0, int(len(m_l)+1+len(m_r)))                       #combining the entrys from all masses
-		ov_condensate[j] = np.sqrt(beta)*(-1)/(Nt*Ns*Nt*Ns) * (ov_numerator[j].real/ ov_denumerator[j].real)       
+		ov_condensate[j] = np.sqrt(beta)/(Nt*Ns*Nt*Ns) * (ov_numerator[j]/ ov_denumerator[j])       
             
 	return ov_condensate
 
@@ -462,19 +80,19 @@ class Gauge:
         for i in range (1, Nt*Ns*2):   
             if (evo[i]).real != 2*rho:
                 lambda_tilde = 2*rho*(evo[i].real)/(2*rho-(evo[i].real))          #sum over complex conjugatet pairs
-                if evo[i].imag > pow(10,-5):
-                    primed_sum += (lambda_tilde.real + m)/(lambda_tilde * np.conj(lambda_tilde) + m*m + 2*m*lambda_tilde.real)
+                if lambda_tilde.imag > pow(10,-5):
+                    primed_sum += (lambda_tilde.real + m)/(pow(np.absolute(evo[i]),2) + m*m + 2*m*lambda_tilde.real)
         
                     
-                if evo[i].imag < pow(10,-5):  					 #sum over topo EV
-                    primed_sum += 1 / (lambda_tilde + m)
+                if lambda_tilde.imag < pow(10,-5) and m !=0:  					 #sum over topo EV
+                    primed_sum += 1 / (lambda_tilde.real + m)
         
         
         det = 1 
         for i in range (1, Nt*Ns*2):
             det *= ((1 - m / (2 * rho)) * evo[i] + m)
             
-        numerator =  pow(det, N_f).real*primed_sum.real
-        denumerator = pow(det, N_f.real)
+        numerator =  pow(det, N_f).real*primed_sum
+        denumerator = pow(det, N_f).real
         return numerator, denumerator
     
