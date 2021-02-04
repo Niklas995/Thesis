@@ -26,8 +26,6 @@
         
         return ov_condensate[0], err_ov_condensate, m
     
-abc
-
 
 
     def condensates(self, U_configs , m_r,m_l, rho, beta, Nt, Ns, N_f):
