@@ -1,16 +1,9 @@
-
-
     def bootstrap(self, bs_steps, U_save, beta, rho,  Nt, Ns, N_f):
         U_new_config = np.zeros([int((self.updates -  self.skip) / self.intervall)-1, 2, Nt, Ns])
-        m_r = np.arange(0.01, 0.2, 0.005)                     #array of negativ masses
-        m_l = np.arange(-0.1,-0.01, 0.005)		     #array of positive masses
-        m = np.zeros([int(len(m_l)+1+len(m_r))])             
-        for i in range (0, int(len(m_l))):		     #combining both arrays with a zero in the middle
-            m[i] = m_l[i]
-        for i in range (0, int(len(m_r))):
-            m[int(len(m_l)+1+i)] = m_r[i]
-
-
+        #print(U_save)
+        m = np.arange(-0.1, 0.2, 0.0003)
+        
+        
         ov_condensate = np.zeros([bs_steps, len(m)], dtype=complex)
         
         r = random.randint(0, int((self.updates - self.skip) / self.intervall-2))
@@ -19,78 +12,95 @@
         for b in range (0, bs_steps):
             for k in range (0,int((self.updates - self.skip) / self.intervall-1)):
                 r = random.randint(0, int((self.updates - self.skip) / self.intervall-2))
-                U_new_config[k,:,:,:] = U_save[r,:,:,:]
-            ov_condensate[b] = self.condensates(U_new_config , m_r,m_l, rho, beta, Nt, Ns, N_f)
+                U_new_config[k,:,:,:] = U_save[k,:,:,:]
+            ov_condensate[b] = self.condensates(U_new_config , m, rho, beta, Nt, Ns, N_f)
         
-	err_ov_condensate = np.std(ov_condensate, axis = 0)
-        
-        return ov_condensate[0], err_ov_condensate, m
+        return ov_condensate, m
     
 
 
-    def condensates(self, U_configs , m_r,m_l, rho, beta, Nt, Ns, N_f):
-        ov_numerator   = np.zeros([int(len(m_l)+ len(m_r) + 1)], dtype=complex)
-        ov_denumerator = np.zeros([int(len(m_l)+ len(m_r) + 1)], dtype=complex)
-        ov_condensate = np.zeros([int(len(m_l)+ len(m_r) + 1)], dtype=complex)
-    
+
+    def condensates(self, U_configs , m, rho, beta, Nt, Ns, N_f):
+        ov_nominator   = np.zeros([int(len(m))], dtype=complex)
+        ov_denumerator = np.zeros([int(len(m))], dtype=complex)
+        ov_condensate = np.zeros([int(len(m))], dtype=complex)
         for i in range (0, int((self.updates - self.skip) / self.intervall-1)): 
             evo = self.Evo(U_configs[i], rho, Nt, Ns)  #massless staggered ev m=0
             
-            for j in range(0, len(m_l)):       			            #contributions for negative masses
-                numerator , denumerator = self.ov_scal_de_numerator(evo, m_l[j], rho, beta, Nt, Ns, N_f)
+            for j in range(0, len(m)):
+                nominator , denumerator = self.ov_scal_de_nominator(evo, m[j], rho, beta, Nt, Ns, N_f)
                 
-                ov_numerator[j] += numerator
+                ov_nominator[j] += nominator
                 ov_denumerator[j] += denumerator
+    
             
             
-            if np.all(np.absolute(evo.real) >pow(10,-6)) :          	     #contributions for m = 0 where configurations don't contain lambda = 0
-                
-                numerator, denumerator = self.ov_scal_de_numerator(evo, 0, rho, beta, Nt, Ns, N_f)
-                ov_numerator[int(len(m_l))] += numerator
-                ov_denumerator[int(len(m_l))] += denumerator
-                
-            
-            if np.any(np.absolute(evo.real) < pow(10,-6)):    	    	     #contributions for m = 0 where configurations do contain lambda = 0 
-                
-		k = 1
-                for i in range (0,len(evo)):
-                    if np.absolute(evo[i].real) > pow(10, -6):
-                        k *= evo[i]
-                ov_numerator[int(len(m_l))] += k
-                
-            
-            for k in range(int(len(m_l)+1), int(len(m_l)+1+len(m_r))):      #contributions for positive masses
-                
-                numerator,denumerator = 0.,0.
-                numerator , denumerator = self.ov_scal_de_numerator(evo, m_r[int(k - (len(m_l)+1))], rho, beta, Nt, Ns, N_f)
-                ov_numerator[k] += numerator 
-                ov_denumerator[k] += denumerator
-                
-                
-        for j in range (0, int(len(m_l)+1+len(m_r)))                       #combining the entrys from all masses
-		ov_condensate[j] = np.sqrt(beta)/(Nt*Ns*Nt*Ns) * (ov_numerator[j]/ ov_denumerator[j])       
-            
-	return ov_condensate
-
-    def ov_scal_de_numerator(self, evo, m, rho, beta, Nt, Ns, N_f):
+    
+        for j in range (0, int(len(m))):# + len(m_r) + 1)):
+            ov_condensate[j] = np.sqrt(beta)/(Nt*Ns*Nt*Ns) * (ov_nominator[j]/ ov_denumerator[j])       
         
-        primed_sum = 0 
-        for i in range (1, Nt*Ns*2):   
-            if (evo[i]).real != 2*rho:
-                lambda_tilde = 2*rho*(evo[i].real)/(2*rho-(evo[i].real))          #sum over complex conjugatet pairs
-                if lambda_tilde.imag > pow(10,-5):
-                    primed_sum += (lambda_tilde.real + m)/(pow(np.absolute(evo[i]),2) + m*m + 2*m*lambda_tilde.real)
+        return ov_condensate
+
+    def ov_scal_de_nominator(self, evo, m, rho, beta, Nt, Ns, N_f):
+        primed_sum = 0
+        det = 1
+        nominator, denumerator = 0.,0.
+        if np.absolute(m) > pow(10,-5):             #firstly all masses != 0
+            for i in range (0, Nt*Ns*2):   
+                if (evo[i]).real != 2*rho:
+                    lambda_tilde = 2*rho*(evo[i].real)/(2*rho-(evo[i].real))           
+                    if np.absolute(lambda_tilde.imag) > pow(10,-5):   #condition for complex conjugated pairs
+                        primed_sum += (lambda_tilde.real + m)/(pow(np.absolute(lambda_tilde),2) + m*m + 2*m*lambda_tilde.real)
+                    if np.absolute(lambda_tilde.imag) < pow(10,-5):   #condition topo EV
+                        primed_sum += 1 / (lambda_tilde.real + m)
         
                     
-                if lambda_tilde.imag < pow(10,-5) and m !=0:  					 #sum over topo EV
-                    primed_sum += 1 / (lambda_tilde.real + m)
+                det *= (((1 - m / (2 * rho)) * evo[i] + m))
         
         
-        det = 1 
-        for i in range (1, Nt*Ns*2):
-            det *= ((1 - m / (2 * rho)) * evo[i] + m)
+            nominator =  pow(det, N_f).real*primed_sum
+            denumerator = pow(det, N_f).real
             
-        numerator =  pow(det, N_f).real*primed_sum
-        denumerator = pow(det, N_f).real
-        return numerator, denumerator
+            
+        if np.absolute(m) < pow(10,-5):     #secondly massens = 0
+            a=0
+            if np.all(np.absolute(evo.real) >pow(10,-6)) :          #configs w/o lambda=0
+                for i in range (0, Nt*Ns*2):    
+                    if  (evo[i]).real != 2*rho:
+                        lambda_tilde = 2*rho*(evo[i].real)/(2*rho-(evo[i].real))         
+                        primed_sum += 1/lambda_tilde
+                    det *= evo[i]
+                nominator = pow(det, N_f).real*primed_sum
+                denumerator = pow(det, N_f).real
+                    
+            if np.any(np.absolute(evo.real) < pow(10,-6)):        #configs with lambda=0
+                for i in range (0, Nt*Ns*2):    
+                    if np.absolute(evo[i]) > pow(10,-5) or a==1:
+                        det *= evo[i]                              #no sum because it is 1/m
+                    if np.absolute(evo[i]) < pow(10,-5):
+                        a = 1
+                nominator = pow(det, N_f).real
+                denumerator = 0
+                  
+        return nominator, denumerator
+    
+    def st_scal_de_nominator(self, evw, m, rho, beta, Nt, Ns, N_f):
+        primed_sum = 0
+        for i in range (0, Nt*Ns*2):
+            if (evw[i]).real != 2*rho: 
+                lambda_tilde = 2*rho*(evw[i].real) / (2*rho-(evo[i].real))
+                if np.absolute(lambd.tilde.imag) > pow(10,-5):
+                    primed_sum += 1/(evw[i] + m)
+            
+            
+        det = 1
+        for i in range (Nt*Ns*2):
+            if evw[i] != 0:
+                det = det * (evw[i] + m)
+        
+        nominator = pow(det, N_f/2) * Sum + nominator_m0
+        denumerator = pow(det, N_f/2)
+        
+        return nominator, denumerator
+    
     
